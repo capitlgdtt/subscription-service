@@ -5,16 +5,17 @@ spring:
     ansi:
       enabled: always
   datasource:
-    url: jdbc:postgresql://localhost:5433/subscription_service
-    username: postgres
-    password: postgres
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/subscription_service}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
   docker:
     compose:
-      lifecycle-management: start-and-stop
+      enabled: ${DOCKER_COMPOSE_ENABLED:true}
       file: docker-compose.yaml
 
 server:
+  port: ${PORT:8080}
   error:
     include-stacktrace: always
     include-message: always
