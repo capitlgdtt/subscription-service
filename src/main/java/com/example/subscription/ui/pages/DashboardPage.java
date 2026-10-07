@@ -94,6 +94,13 @@ public class DashboardPage implements Page {
                 .config("currency", "USD")
                 .hint("Which tariffs bring the revenue.");
 
+        b.widget("Revenue by customer").type("chart").width("1/2").order(14).register(Revenue.class)
+                .config("kind", "bar")
+                .config("groupBy", "customerName")
+                .config("metric", "sum").metricField(Revenue::getAmount)
+                .config("currency", "USD")
+                .hint("Which customers bring the revenue.");
+
         b.widget("Subscriptions by status").type("chart").width("1/2").order(12)
                 .document(Subscription.class)
                 .config("kind", "bar")
@@ -112,12 +119,14 @@ public class DashboardPage implements Page {
 
         b.widget("Recent subscriptions").type("list").width("1/2").order(20)
                 .document(Subscription.class).maxItems(10)
-                .config("titleTemplate", "{number} · {customerDisplay}")
+                .titleField(Subscription::getNumber)
+                .dateField(Subscription::getDate)
                 .config("secondaryField", "statusDisplay");
 
         b.widget("Recent payments").type("list").width("1/2").order(21)
                 .document(Payment.class).maxItems(10)
-                .config("titleTemplate", "{number} · {customerDisplay}")
-                .config("secondaryField", "amount");
+                .titleField(Payment::getNumber)
+                .dateField(Payment::getDate)
+                .config("secondaryField", "method");
     }
 }
