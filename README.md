@@ -53,6 +53,8 @@ Spring Boot поднимает PostgreSQL из `docker-compose.yaml` (порт 5
 | `SubscriptionInsufficientFundsTest#posting_withInsufficientBalance_isRejected_andWritesNothing` | Оформить подписку при нехватке денег на счёте нельзя |
 | `SubscriptionCancelledTest#posting_cancelledSubscription_doesNotTouchBalancesOrRevenue` | Отменённая подписка не создаёт никаких движений |
 | `SubscriptionRulesTest` (4 `@Nested`-группы, 9 тестов) | Бизнес-правила: клиент обязателен, хотя бы одна строка, число периодов > 0, тариф доступен для подключения |
+| `SubscriptionLifecycleJobTest` (3 теста) | Регламентное задание: `DRAFT → ACTIVE`, `ACTIVE → EXPIRED`, непроведённая подписка не активируется |
+| `SubscriptionCancelActionTest` (2 теста) | Действие отмены (`ActionSpec`): статус меняется на `Cancelled`, причина сохраняется |
 
 ## Реализовано
 
