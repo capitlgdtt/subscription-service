@@ -1,0 +1,56 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.4.4'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+description = 'subscription-service'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // --- onno framework ---
+    implementation 'su.onno:onno-framework-starter:2.0.0'
+    implementation 'su.onno:onno-ui-starter:2.0.0'
+    implementation 'su.onno:onno-auth-starter:2.0.0'
+
+    implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+
+    // --- Lombok ---
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+
+    // --- Database: PostgreSQL ---
+    runtimeOnly 'org.postgresql:postgresql'
+
+    // --- Docker Compose (dev only): поднимает PostgreSQL при запуске приложения ---
+    developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
+
+    // --- Tests ---
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:postgresql'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.testcontainers:testcontainers-bom:1.20.4"
+    }
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

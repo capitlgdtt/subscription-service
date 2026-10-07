@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: subscription-service
+  output:
+    ansi:
+      enabled: always
+  datasource:
+    url: jdbc:postgresql://localhost:5433/subscription_service
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  docker:
+    compose:
+      lifecycle-management: start-and-stop
+      file: docker-compose.yaml
+
+server:
+  error:
+    include-stacktrace: always
+    include-message: always
+
+onno:
+  ui:
+    locale: en
+  auth:
+    mode: in-memory
+    session:
+      timeout: 8h
+      remember-me:
+        enabled: true
+        validity: 14d
+        allow-ephemeral-key: true
+    users:
+      - username: admin
+        password: admin
+        roles: [ADMIN]
+      - username: manager
+        password: manager
+        roles: [MANAGER]
+
+org:
+  jobrunr:
+    database:
+      type: sql
+    background-job-server:
+      enabled: true
+    dashboard:
+      enabled: false
