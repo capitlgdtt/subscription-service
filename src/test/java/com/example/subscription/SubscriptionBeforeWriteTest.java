@@ -6,15 +6,17 @@ import com.example.subscription.domain.documents.Subscription;
 import com.example.subscription.domain.documents.SubscriptionLine;
 import com.example.subscription.domain.enumerations.SubscriptionStatus;
 import com.example.subscription.repositories.CustomerRepository;
-import com.example.subscription.repositories.SubscriptionRepository;
 import com.example.subscription.repositories.TariffRepository;
 import su.onno.types.Ref;
 
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -25,21 +27,25 @@ import static org.assertj.core.api.Assertions.assertThat;
  * saved through the UI command service, and by {@code PostingEngine} when a document is posted.
  * The Spring Data JDBC repository path does <b>not</b> invoke it — so the test calls the hook
  * directly to exercise the rule in isolation from any write pipeline.</p>
+ *
+ * <p>Traces to Level 2 requirements on auto-fill: a line's price is taken from its tariff, and
+ * the document total and end date are recomputed on every save.</p>
  */
+@Tag("level-2")
 class SubscriptionBeforeWriteTest extends AbstractIntegrationTest {
 
     @Autowired CustomerRepository customers;
     @Autowired TariffRepository tariffs;
-    @Autowired SubscriptionRepository subscriptions;
 
     @Test
+    @DisplayName("[Level 2 · autofill] Total is the sum of line amounts; end date uses the MAX line duration")
     void totalAndEndDate_areComputedFromLines() {
-        Customer customer = newCustomer("Acme");
-        Tariff monthly = newTariff("Monthly", "10.00", 30);
-        Tariff yearly = newTariff("Yearly", "100.00", 365);
+        Customer customer = newCustomer("Acme-Sum");
+        Tariff monthly = newTariff("Monthly-30", "10.00", 30);
+        Tariff yearly = newTariff("Yearly-365", "100.00", 365);
 
         Subscription sub = new Subscription();
-        sub.setCustomer(Ref.of(Customer.class, customer.getId()));
+        sub.setCustomer(Ref.of(Customer.class, Objects.requireNonNull(customer.getId())));
         sub.setStatus(SubscriptionStatus.DRAFT);
         sub.setStartDate(LocalDate.of(2026, 1, 1));
 
@@ -55,18 +61,21 @@ class SubscriptionBeforeWriteTest extends AbstractIntegrationTest {
         assertThat(sub.getEndDate()).isEqualTo(LocalDate.of(2026, 1, 1).plusDays(365));
 
         // Each line has its amount recomputed from tariff price × periods.
-        assertThat(sub.getLines().get(0).getAmount()).isEqualByComparingTo("10.00");
-        assertThat(sub.getLines().get(0).getPrice()).isEqualByComparingTo("10.00");
-        assertThat(sub.getLines().get(1).getAmount()).isEqualByComparingTo("100.00");
+        SubscriptionLine monthlyLine = sub.getLines().getFirst();
+        SubscriptionLine yearlyLine = sub.getLines().get(1);
+        assertThat(monthlyLine.getAmount()).isEqualByComparingTo("10.00");
+        assertThat(monthlyLine.getPrice()).isEqualByComparingTo("10.00");
+        assertThat(yearlyLine.getAmount()).isEqualByComparingTo("100.00");
     }
 
     @Test
+    @DisplayName("[Level 2 · autofill] Periods multiply the amount and extend the duration proportionally")
     void multiplePeriods_multiplyAmount_andExtendDuration() {
-        Customer customer = newCustomer("Acme");
-        Tariff monthly = newTariff("Monthly", "10.00", 30);
+        Customer customer = newCustomer("Acme-Periods");
+        Tariff monthly = newTariff("Monthly-30", "10.00", 30);
 
         Subscription sub = new Subscription();
-        sub.setCustomer(Ref.of(Customer.class, customer.getId()));
+        sub.setCustomer(Ref.of(Customer.class, Objects.requireNonNull(customer.getId())));
         sub.setStatus(SubscriptionStatus.DRAFT);
         sub.setStartDate(LocalDate.of(2026, 1, 1));
 
@@ -80,6 +89,7 @@ class SubscriptionBeforeWriteTest extends AbstractIntegrationTest {
 
     // --- helpers -------------------------------------------------------------------------------
 
+    @SuppressWarnings("SameParameterValue")
     private Customer newCustomer(String name) {
         Customer c = new Customer();
         c.setDescription(name);
@@ -97,7 +107,7 @@ class SubscriptionBeforeWriteTest extends AbstractIntegrationTest {
 
     private static SubscriptionLine line(Tariff tariff, int periods) {
         SubscriptionLine l = new SubscriptionLine();
-        l.setTariff(Ref.of(Tariff.class, tariff.getId()));
+        l.setTariff(Ref.of(Tariff.class, Objects.requireNonNull(tariff.getId())));
         l.setPeriods(periods);
         return l;
     }

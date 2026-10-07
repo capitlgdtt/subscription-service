@@ -11,14 +11,14 @@ import lombok.Setter;
 import java.math.BigDecimal;
 
 /**
- * One line of a {@link Subscription}: a tariff purchased for N periods at a frozen price.
+ * One line of a {@link Subscription}: a tariff purchased for N periods.
  *
- * <p>The {@code price} is captured once, when the tariff is first picked, and is never
- * re-read from the tariff afterward. This freezes the commercial terms of a posted
- * subscription: editing a tariff's price later must not retroactively change the total
- * of an existing document (and therefore must not diverge from the revenue register).
- * The {@code amount} is derived as {@code price * periods} on every write; {@code periods}
- * is the only field the user can freely change on an existing line.</p>
+ * <p>{@code price} and {@code amount} are <b>derived</b> fields — the user never edits them
+ * directly. {@code Subscription.beforeWrite()} re-reads the tariff's current price on every
+ * save and recomputes {@code amount = price × periods}. Once the subscription has posted,
+ * the resulting balance and revenue movements are frozen, so a later change to the tariff's
+ * price cannot retroactively alter the register — but until posting, the line's commercial
+ * terms follow the tariff.</p>
  */
 @Getter
 @Setter

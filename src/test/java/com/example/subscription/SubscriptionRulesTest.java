@@ -6,13 +6,16 @@ import com.example.subscription.domain.documents.Subscription;
 import com.example.subscription.domain.documents.SubscriptionLine;
 import com.example.subscription.domain.enumerations.SubscriptionStatus;
 import com.example.subscription.repositories.TariffRepository;
-import su.onno.rules.BusinessRule;
 import su.onno.types.Ref;
 
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -21,80 +24,108 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Verifies the {@link Subscription#rules()} contract in isolation, without going through the
  * write pipeline. Each rule is identified by its name so the test fails with a precise message
  * if a rule is renamed or removed.
+ *
+ * <p>Traces to Level 2 business-rule requirements: a customer is required, at least one line
+ * is required, every line must have a positive period count, and every selected tariff must be
+ * available for subscription.</p>
  */
+@Tag("level-2")
 class SubscriptionRulesTest extends AbstractIntegrationTest {
 
     @Autowired TariffRepository tariffs;
 
-    @Test
-    void customerRequired_violatedWhenNull() {
-        Subscription sub = new Subscription();
-        sub.setStatus(SubscriptionStatus.DRAFT);
+    @Nested
+    @DisplayName("customer-required")
+    class CustomerRequired {
 
-        assertThat(ruleHolds(sub, "customer-required")).isFalse();
+        @Test
+        @DisplayName("[Level 2 · rules] A subscription without a customer violates the rule")
+        void violatedWhenNull() {
+            Subscription sub = new Subscription();
+            sub.setStatus(SubscriptionStatus.DRAFT);
+
+            assertThat(ruleHolds(sub, "customer-required")).isFalse();
+        }
+
+        @Test
+        @DisplayName("[Level 2 · rules] A subscription with a customer passes")
+        void holdsWhenSet() {
+            Subscription sub = new Subscription();
+            sub.setCustomer(Ref.of(Customer.class, UUID.randomUUID()));
+            sub.setStatus(SubscriptionStatus.DRAFT);
+
+            assertThat(ruleHolds(sub, "customer-required")).isTrue();
+        }
     }
 
-    @Test
-    void customerRequired_holdsWhenSet() {
-        Subscription sub = new Subscription();
-        sub.setCustomer(Ref.of(Customer.class, UUID.randomUUID()));
-        sub.setStatus(SubscriptionStatus.DRAFT);
+    @Nested
+    @DisplayName("lines-required")
+    class LinesRequired {
 
-        assertThat(ruleHolds(sub, "customer-required")).isTrue();
+        @Test
+        @DisplayName("[Level 2 · rules] An empty draft violates the rule")
+        void violatedWhenEmptyDraft() {
+            Subscription sub = new Subscription();
+            sub.setCustomer(Ref.of(Customer.class, UUID.randomUUID()));
+            sub.setStatus(SubscriptionStatus.DRAFT);
+
+            assertThat(ruleHolds(sub, "lines-required")).isFalse();
+        }
+
+        @Test
+        @DisplayName("[Level 2 · rules] A cancelled subscription is allowed to carry no lines")
+        void allowedWhenCancelled() {
+            Subscription sub = new Subscription();
+            sub.setCustomer(Ref.of(Customer.class, UUID.randomUUID()));
+            sub.setStatus(SubscriptionStatus.CANCELLED);
+
+            assertThat(ruleHolds(sub, "lines-required")).isTrue();
+        }
     }
 
-    @Test
-    void linesRequired_violatedWhenEmptyDraft() {
-        Subscription sub = new Subscription();
-        sub.setCustomer(Ref.of(Customer.class, UUID.randomUUID()));
-        sub.setStatus(SubscriptionStatus.DRAFT);
+    @Nested
+    @DisplayName("periods-positive")
+    class PeriodsPositive {
 
-        assertThat(ruleHolds(sub, "lines-required")).isFalse();
+        @Test
+        @DisplayName("[Level 2 · rules] Zero periods violates the rule")
+        void violatedWhenZero() {
+            Subscription sub = subscriptionWithLine(0, availableTariff());
+            assertThat(ruleHolds(sub, "periods-positive")).isFalse();
+        }
+
+        @Test
+        @DisplayName("[Level 2 · rules] Null periods violates the rule")
+        void violatedWhenNull() {
+            Subscription sub = subscriptionWithLine(null, availableTariff());
+            assertThat(ruleHolds(sub, "periods-positive")).isFalse();
+        }
+
+        @Test
+        @DisplayName("[Level 2 · rules] Positive periods pass")
+        void holdsWhenPositive() {
+            Subscription sub = subscriptionWithLine(3, availableTariff());
+            assertThat(ruleHolds(sub, "periods-positive")).isTrue();
+        }
     }
 
-    @Test
-    void linesRequired_allowedWhenCancelled() {
-        Subscription sub = new Subscription();
-        sub.setCustomer(Ref.of(Customer.class, UUID.randomUUID()));
-        sub.setStatus(SubscriptionStatus.CANCELLED);
+    @Nested
+    @DisplayName("tariff-available")
+    class TariffAvailable {
 
-        // A cancelled subscription is a terminal record with a reason only — no lines required.
-        assertThat(ruleHolds(sub, "lines-required")).isTrue();
-    }
+        @Test
+        @DisplayName("[Level 2 · rules] A retired tariff violates the rule")
+        void violatedWhenTariffDisabled() {
+            Subscription sub = subscriptionWithLine(1, unavailableTariff());
+            assertThat(ruleHolds(sub, "tariff-available")).isFalse();
+        }
 
-    @Test
-    void periodsPositive_violatedWhenZero() {
-        Subscription sub = subscriptionWithLine(periods(0), availableTariff());
-
-        assertThat(ruleHolds(sub, "periods-positive")).isFalse();
-    }
-
-    @Test
-    void periodsPositive_violatedWhenNull() {
-        Subscription sub = subscriptionWithLine(periods(null), availableTariff());
-
-        assertThat(ruleHolds(sub, "periods-positive")).isFalse();
-    }
-
-    @Test
-    void periodsPositive_holdsWhenPositive() {
-        Subscription sub = subscriptionWithLine(periods(3), availableTariff());
-
-        assertThat(ruleHolds(sub, "periods-positive")).isTrue();
-    }
-
-    @Test
-    void tariffAvailable_violatedWhenTariffDisabled() {
-        Subscription sub = subscriptionWithLine(periods(1), unavailableTariff());
-
-        assertThat(ruleHolds(sub, "tariff-available")).isFalse();
-    }
-
-    @Test
-    void tariffAvailable_holdsWhenAvailable() {
-        Subscription sub = subscriptionWithLine(periods(1), availableTariff());
-
-        assertThat(ruleHolds(sub, "tariff-available")).isTrue();
+        @Test
+        @DisplayName("[Level 2 · rules] An available tariff passes")
+        void holdsWhenAvailable() {
+            Subscription sub = subscriptionWithLine(1, availableTariff());
+            assertThat(ruleHolds(sub, "tariff-available")).isTrue();
+        }
     }
 
     // --- helpers -------------------------------------------------------------------------------
@@ -107,35 +138,32 @@ class SubscriptionRulesTest extends AbstractIntegrationTest {
                 .holds();
     }
 
-    private Subscription subscriptionWithLine(Integer periods, Tariff tariff) {
+    private Subscription subscriptionWithLine(Integer periods, Ref<Tariff> tariff) {
         Subscription sub = new Subscription();
         sub.setCustomer(Ref.of(Customer.class, UUID.randomUUID()));
         sub.setStatus(SubscriptionStatus.DRAFT);
         SubscriptionLine line = new SubscriptionLine();
-        line.setTariff(Ref.of(Tariff.class, tariff.getId()));
+        line.setTariff(tariff);
         line.setPeriods(periods);
         sub.getLines().add(line);
         return sub;
     }
 
-    private Integer periods(Integer value) {
-        return value;
-    }
-
-    private Tariff availableTariff() {
+    private Ref<Tariff> availableTariff() {
         return newTariff(true);
     }
 
-    private Tariff unavailableTariff() {
+    private Ref<Tariff> unavailableTariff() {
         return newTariff(false);
     }
 
-    private Tariff newTariff(boolean available) {
+    @SuppressWarnings("SameParameterValue")
+    private Ref<Tariff> newTariff(boolean available) {
         Tariff t = new Tariff();
         t.setDescription("Tariff-" + UUID.randomUUID().toString().substring(0, 8));
         t.setPrice(new BigDecimal("30.00"));
         t.setPeriodDays(30);
         t.setAvailable(available);
-        return tariffs.save(t);
+        return Ref.of(Tariff.class, Objects.requireNonNull(tariffs.save(t).getId()));
     }
 }

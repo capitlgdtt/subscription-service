@@ -7,6 +7,14 @@ import su.onno.ui.ListSpec;
 
 import org.springframework.stereotype.Component;
 
+/**
+ * UI shape of the {@link Tariff} catalog.
+ *
+ * <p>Price is rendered as money in both the list and the form so a manager never mistakes
+ * a bare number for a monthly vs. an annual figure; the period length sits beside it as
+ * "Days". The "Available" flag uses a switch control — the intent is a simple on/off
+ * toggle, not a checkbox whose blank state is ambiguous.</p>
+ */
 @Component
 public class TariffView implements EntityView<Tariff> {
 

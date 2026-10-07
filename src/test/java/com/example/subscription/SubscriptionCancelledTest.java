@@ -7,6 +7,7 @@ import com.example.subscription.domain.documents.Subscription;
 import com.example.subscription.domain.documents.SubscriptionLine;
 import com.example.subscription.domain.enumerations.PaymentMethod;
 import com.example.subscription.domain.enumerations.SubscriptionStatus;
+import com.example.subscription.domain.registers.Revenue;
 import com.example.subscription.repositories.AccountBalanceRepository;
 import com.example.subscription.repositories.CustomerRepository;
 import com.example.subscription.repositories.PaymentRepository;
@@ -16,12 +17,16 @@ import com.example.subscription.repositories.TariffRepository;
 import su.onno.posting.PostingService;
 import su.onno.types.Ref;
 
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,7 +35,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Verifies that a subscription in {@link SubscriptionStatus#CANCELLED} is a no-op at posting:
  * no balance movement is written and no revenue is recognised. The guard lives in
  * {@code Subscription.handlePosting}: it returns early when the status is cancelled.
+ *
+ * <p>Traces to the Level 2 requirement that a cancelled subscription creates no movements.</p>
  */
+@Tag("level-2")
 class SubscriptionCancelledTest extends AbstractIntegrationTest {
 
     @Autowired CustomerRepository customers;
@@ -42,14 +50,15 @@ class SubscriptionCancelledTest extends AbstractIntegrationTest {
     @Autowired PostingService posting;
 
     @Test
+    @DisplayName("[Level 2 · posting] Cancelled subscription writes no balance and no revenue movements")
     void posting_cancelledSubscription_doesNotTouchBalancesOrRevenue() {
         String tag = UUID.randomUUID().toString().substring(0, 8);
-        Customer customer = newCustomer("Acme-" + tag);
-        Tariff monthly = newTariff("Monthly-" + tag, "30.00", 30);
+        Ref<Customer> customer = newCustomer("Acme-" + tag);
+        Ref<Tariff> monthly = newTariff("Monthly-" + tag, "30.00", 30);
 
         // Fund the account with 100, so a wrong post would be affordable and thus visible.
         Payment payment = new Payment();
-        payment.setCustomer(Ref.of(Customer.class, customer.getId()));
+        payment.setCustomer(customer);
         payment.setAmount(new BigDecimal("100.00"));
         payment.setMethod(PaymentMethod.CARD);
         payments.save(payment);
@@ -72,46 +81,49 @@ class SubscriptionCancelledTest extends AbstractIntegrationTest {
 
     // --- helpers -------------------------------------------------------------------------------
 
-    private Customer newCustomer(String name) {
+    @SuppressWarnings("SameParameterValue")
+    private Ref<Customer> newCustomer(String name) {
         Customer c = new Customer();
         c.setDescription(name);
-        return customers.save(c);
+        return Ref.of(Customer.class, Objects.requireNonNull(customers.save(c).getId()));
     }
 
-    private Tariff newTariff(String name, String price, int periodDays) {
+    @SuppressWarnings("SameParameterValue")
+    private Ref<Tariff> newTariff(String name, String price, int periodDays) {
         Tariff t = new Tariff();
         t.setDescription(name);
         t.setPrice(new BigDecimal(price));
         t.setPeriodDays(periodDays);
         t.setAvailable(true);
-        return tariffs.save(t);
+        return Ref.of(Tariff.class, Objects.requireNonNull(tariffs.save(t).getId()));
     }
 
-    private Subscription newSubscription(Customer customer, Tariff tariff, int periods) {
+    @SuppressWarnings("SameParameterValue")
+    private Subscription newSubscription(Ref<Customer> customer, Ref<Tariff> tariff, int periods) {
         Subscription sub = new Subscription();
-        sub.setCustomer(Ref.of(Customer.class, customer.getId()));
+        sub.setCustomer(customer);
         sub.setStartDate(LocalDate.now());
         SubscriptionLine line = new SubscriptionLine();
-        line.setTariff(Ref.of(Tariff.class, tariff.getId()));
+        line.setTariff(tariff);
         line.setPeriods(periods);
         sub.getLines().add(line);
         return sub;
     }
 
-    private BigDecimal balanceOf(Customer customer) {
+    private BigDecimal balanceOf(Ref<Customer> customer) {
         return balances.getBalance().stream()
                 .filter(r -> r.getCustomer() != null
-                        && r.getCustomer().id().equals(customer.getId()))
+                        && r.getCustomer().id().equals(customer.id()))
                 .map(b -> b.getAmount() == null ? BigDecimal.ZERO : b.getAmount())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    private java.util.List<com.example.subscription.domain.registers.Revenue> revenueFor(Customer customer) {
+    private List<Revenue> revenueFor(Ref<Customer> customer) {
         LocalDateTime from = LocalDateTime.now().minusDays(1);
         LocalDateTime to = LocalDateTime.now().plusDays(1);
         return revenues.getTurnover(from, to).stream()
                 .filter(r -> r.getCustomer() != null
-                        && r.getCustomer().id().equals(customer.getId()))
+                        && r.getCustomer().id().equals(customer.id()))
                 .toList();
     }
 }
