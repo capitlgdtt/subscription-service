@@ -32,17 +32,27 @@ Spring Boot поднимает PostgreSQL из `docker-compose.yaml` (порт 5
 ./gradlew test
 ```
 
-Интеграционные тесты на Testcontainers (`postgres:16-alpine`).
+Интеграционные тесты на Testcontainers (`postgres:16-alpine`): для каждого
+запуска поднимается одноразовый контейнер PostgreSQL, приложение стартует
+против него, схема onno генерируется автоматически. Docker должен быть запущен.
 
-Покрытие:
+Все тесты помечены тегом `level-2` и имеют `@DisplayName` со ссылкой на пункт
+задания. Запуск только этой группы:
 
-| Тест | Что проверяет |
+```bash
+./gradlew test -Dgroups=level-2
+```
+
+### Трассировка
+
+| Тест | Пункт задания |
 |---|---|
-| `SubscriptionBeforeWriteTest` | `total` = сумма строк; `endDate` = дата начала + **максимум** длительности строк (не сумма) |
-| `SubscriptionPostingTest` | проведение списывает баланс и признаёт выручку в разрезе тарифа и клиента |
-| `SubscriptionInsufficientFundsTest` | при нехватке денег проведение отклоняется, движений не создаётся |
-| `SubscriptionCancelledTest` | отменённая подписка не создаёт движений |
-| `SubscriptionRulesTest` | бизнес-правила документа |
+| `SubscriptionBeforeWriteTest#totalAndEndDate_areComputedFromLines` | Автоподстановка: цена строки из тарифа; пересчёт сумм и даты окончания |
+| `SubscriptionBeforeWriteTest#multiplePeriods_multiplyAmount_andExtendDuration` | Дата окончания — максимум по строкам, а не сумма |
+| `SubscriptionPostingTest#posting_drawsBalance_andRecognisesRevenue` | Стоимость подписки списывается с лицевого счёта в момент проведения; выручка в разрезе тарифов и клиентов |
+| `SubscriptionInsufficientFundsTest#posting_withInsufficientBalance_isRejected_andWritesNothing` | Оформить подписку при нехватке денег на счёте нельзя |
+| `SubscriptionCancelledTest#posting_cancelledSubscription_doesNotTouchBalancesOrRevenue` | Отменённая подписка не создаёт никаких движений |
+| `SubscriptionRulesTest` (4 `@Nested`-группы, 9 тестов) | Бизнес-правила: клиент обязателен, хотя бы одна строка, число периодов > 0, тариф доступен для подключения |
 
 ## Реализовано
 
@@ -51,8 +61,11 @@ Spring Boot поднимает PostgreSQL из `docker-compose.yaml` (порт 5
 - Справочники: `Customer`, `Tariff`.
 - Перечисления: `CustomerStatus`, `SubscriptionStatus`, `PaymentMethod`.
 - Документы: `Payment`; `Subscription` с табличной частью `SubscriptionLine`.
-- Регистры накопления: `AccountBalance` (BALANCE), `Revenue` (TURNOVER).
+- Регистры накопления: `AccountBalance` (BALANCE, `allowNegative = false`),
+  `Revenue` (TURNOVER, с денормализованными именами тарифа и клиента для
+  группировок на дашборде).
 - `EntityView` для каждой сущности; `Layout` с разделами Sales и Reports.
+- `DashboardPage` — главная страница с KPI, графиками и последними документами.
 
 ### Бизнес-логика
 
@@ -76,15 +89,19 @@ Spring Boot поднимает PostgreSQL из `docker-compose.yaml` (порт 5
 ```text
 src/main/java/com/example/subscription/
 ├── SubscriptionApplication.java
-├── config/            ApplicationContextHolder, JobRunrConfig
+├── config/
+│   ├── ApplicationContextHolder.java
+│   └── JobRunrConfig.java
 ├── domain/
-│   ├── catalogs/      Customer, Tariff
-│   ├── documents/     Payment, Subscription, SubscriptionLine
-│   ├── enumerations/  CustomerStatus, SubscriptionStatus, PaymentMethod
-│   └── registers/     AccountBalance, Revenue
-├── jobs/              SubscriptionLifecycleJob
+│   ├── catalogs/       Customer, Tariff
+│   ├── documents/      Payment, Subscription, SubscriptionLine
+│   ├── enumerations/   CustomerStatus, SubscriptionStatus, PaymentMethod
+│   └── registers/      AccountBalance, Revenue
+├── jobs/
+│   └── SubscriptionLifecycleJob.java
 ├── repositories/
 └── ui/
-├── layouts/       MainLayout
-└── views/         EntityView для каждой сущности
+├── layouts/        MainLayout
+├── pages/          DashboardPage
+└── views/          CustomerView, TariffView, PaymentView, SubscriptionView
 ```
