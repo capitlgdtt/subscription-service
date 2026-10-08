@@ -107,3 +107,12 @@ src/main/java/com/example/subscription/
 ├── pages/          DashboardPage
 └── views/          CustomerView, TariffView, PaymentView, SubscriptionView
 ```
+
+## Live demo
+
+Развёрнуто на Render: **https://subscription-service-3uxk.onrender.com**
+
+- Логин: `admin` / `admin`
+- После 15 минут простоя сервис "засыпает" - первый запрос может занять до минуты.
+
+Деплой автоматический: `git push` в `main` пересобирает Docker-образ и перезапускает контейнер.
