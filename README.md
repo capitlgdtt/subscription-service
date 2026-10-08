@@ -96,21 +96,27 @@ Spring Boot поднимает PostgreSQL из `docker-compose.yaml` (порт 5
 ## Структура
 
 ```text
-src/main/java/com/example/subscription/
-├── SubscriptionApplication.java
-├── config/
-│   ├── ApplicationContextHolder.java
-│   └── JobRunrConfig.java
-├── domain/
-│   ├── catalogs/       Customer, Tariff
-│   ├── documents/      Payment, Subscription, SubscriptionLine
-│   ├── enumerations/   CustomerStatus, SubscriptionStatus, PaymentMethod
-│   └── registers/      AccountBalance, Revenue
-├── jobs/
-│   └── SubscriptionLifecycleJob.java
-├── repositories/
-└── ui/
-├── layouts/        MainLayout
-├── pages/          DashboardPage
-└── views/          CustomerView, TariffView, PaymentView, SubscriptionView
+subscription-service/
+├── Dockerfile
+├── docker-compose.yaml
+├── build.gradle
+└── src/main/java/com/example/subscription/
+    ├── SubscriptionApplication.java
+    ├── config/
+    │   ├── ApplicationContextHolder.java
+    │   └── JobRunrConfig.java
+    ├── domain/
+    │   ├── catalogs/       Customer, Tariff
+    │   ├── documents/      Payment, Subscription, SubscriptionLine
+    │   ├── enumerations/   CustomerStatus, SubscriptionStatus, PaymentMethod
+    │   └── registers/      AccountBalance, Revenue
+    ├── jobs/
+    │   └── SubscriptionLifecycleJob.java
+    ├── repositories/       Spring Data интерфейсы
+    ├── services/
+    │   └── SubscriptionService.java
+    └── ui/
+        ├── layouts/        MainLayout
+        ├── pages/          DashboardPage
+        └── views/          CustomerView, TariffView, PaymentView, SubscriptionView
 ```
