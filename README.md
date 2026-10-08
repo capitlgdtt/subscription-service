@@ -7,6 +7,13 @@
 `@AccumulationRegister`, `@Enumeration`). Схема БД, REST API, UI и история миграций
 генерируются фреймворком. Ручных таблиц, DTO и CRUD-контроллеров в проекте нет.
 
+## Live demo
+
+Развёрнуто на Render: **https://subscription-service-3uxk.onrender.com**
+
+- Логин: `admin` / `admin`
+- После 15 минут простоя сервис "засыпает" - первый запрос может занять до минуты.
+
 ## Стек
 
 Java 21 · Spring Boot 3.4.4 · onno-framework 2.0.0 · PostgreSQL 16 · Gradle
@@ -107,12 +114,3 @@ src/main/java/com/example/subscription/
 ├── pages/          DashboardPage
 └── views/          CustomerView, TariffView, PaymentView, SubscriptionView
 ```
-
-## Live demo
-
-Развёрнуто на Render: **https://subscription-service-3uxk.onrender.com**
-
-- Логин: `admin` / `admin`
-- После 15 минут простоя сервис "засыпает" - первый запрос может занять до минуты.
-
-Деплой автоматический: `git push` в `main` пересобирает Docker-образ и перезапускает контейнер.
